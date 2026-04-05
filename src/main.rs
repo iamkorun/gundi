@@ -96,7 +96,7 @@ fn run(cli: &Cli) -> Result<(), String> {
     if let Some(max_days) = should_fail {
         let count = items
             .iter()
-            .filter(|i| i.days_ago.is_some_and(|d| d > max_days))
+            .filter(|i| i.days_ago.is_some_and(|d| d >= max_days))
             .count();
         eprintln!(
             "CI gate: {} item(s) aged {} days or more",
