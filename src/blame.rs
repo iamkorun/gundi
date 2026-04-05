@@ -80,18 +80,17 @@ fn parse_porcelain_blame(output: &str) -> Result<HashMap<usize, BlameInfo>, Stri
         // Header line: <40-char-hash> <orig-line> <final-line> [<num-lines>]
         if line.len() >= 40 && line.chars().take(40).all(|c| c.is_ascii_hexdigit()) {
             // Save the previous entry before starting a new one
-            if let (Some(prev_line), Some(hash)) = (current_line, &current_hash) {
-                if let Some((author, date)) = current_author
+            if let (Some(prev_line), Some(hash)) = (current_line, &current_hash)
+                && let Some((author, date)) = current_author
                     .take()
                     .zip(current_date.take())
                     .or_else(|| commit_cache.get(hash).cloned())
-                {
-                    // Cache this commit's info if we had full headers
-                    commit_cache
-                        .entry(hash.clone())
-                        .or_insert_with(|| (author.clone(), date));
-                    result.insert(prev_line, BlameInfo { author, date });
-                }
+            {
+                // Cache this commit's info if we had full headers
+                commit_cache
+                    .entry(hash.clone())
+                    .or_insert_with(|| (author.clone(), date));
+                result.insert(prev_line, BlameInfo { author, date });
             }
 
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -103,26 +102,24 @@ fn parse_porcelain_blame(output: &str) -> Result<HashMap<usize, BlameInfo>, Stri
             current_date = None;
         } else if let Some(rest) = line.strip_prefix("author ") {
             current_author = Some(rest.to_string());
-        } else if let Some(rest) = line.strip_prefix("author-time ") {
-            if let Ok(timestamp) = rest.parse::<i64>() {
-                if let Some(dt) = chrono::DateTime::from_timestamp(timestamp, 0) {
-                    current_date = Some(dt.date_naive());
-                }
-            }
+        } else if let Some(rest) = line.strip_prefix("author-time ")
+            && let Ok(timestamp) = rest.parse::<i64>()
+            && let Some(dt) = chrono::DateTime::from_timestamp(timestamp, 0)
+        {
+            current_date = Some(dt.date_naive());
         }
     }
 
     // Handle the last entry
-    if let (Some(line_num), Some(hash)) = (current_line, &current_hash) {
-        if let Some((author, date)) = current_author
+    if let (Some(line_num), Some(hash)) = (current_line, &current_hash)
+        && let Some((author, date)) = current_author
             .zip(current_date)
             .or_else(|| commit_cache.get(hash).cloned())
-        {
-            commit_cache
-                .entry(hash.clone())
-                .or_insert_with(|| (author.clone(), date));
-            result.insert(line_num, BlameInfo { author, date });
-        }
+    {
+        commit_cache
+            .entry(hash.clone())
+            .or_insert_with(|| (author.clone(), date));
+        result.insert(line_num, BlameInfo { author, date });
     }
 
     Ok(result)

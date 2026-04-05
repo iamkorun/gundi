@@ -17,10 +17,10 @@ pub fn apply_filters(items: Vec<DebtItem>, filters: &Filters) -> Vec<DebtItem> {
         .into_iter()
         .filter(|item| {
             // Type filter
-            if let Some(ref types) = filters.types {
-                if !types.contains(&item.comment_type) {
-                    return false;
-                }
+            if let Some(ref types) = filters.types
+                && !types.contains(&item.comment_type)
+            {
+                return false;
             }
 
             // Author filter (case-insensitive substring)
