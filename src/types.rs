@@ -34,6 +34,7 @@ impl CommentType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn all() -> Vec<Self> {
         vec![Self::Todo, Self::Fixme, Self::Hack, Self::Bug, Self::Xxx]
     }

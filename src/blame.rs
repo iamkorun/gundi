@@ -62,27 +62,45 @@ fn run_blame(repo_root: &Path, file: &str) -> Result<HashMap<usize, BlameInfo>, 
 }
 
 /// Parse porcelain blame output into a line->BlameInfo map.
+///
+/// In porcelain format, the first occurrence of a commit hash gets the full
+/// header (author, author-time, etc.). Subsequent lines from the same commit
+/// only show the hash + line numbers. We cache commit info by hash to handle this.
 fn parse_porcelain_blame(output: &str) -> Result<HashMap<usize, BlameInfo>, String> {
     let mut result = HashMap::new();
+    // Cache: commit hash -> (author, date)
+    let mut commit_cache: HashMap<String, (String, NaiveDate)> = HashMap::new();
+
+    let mut current_hash: Option<String> = None;
     let mut current_line: Option<usize> = None;
     let mut current_author: Option<String> = None;
     let mut current_date: Option<NaiveDate> = None;
 
     for line in output.lines() {
-        // Header line: <hash> <orig-line> <final-line> [<num-lines>]
+        // Header line: <40-char-hash> <orig-line> <final-line> [<num-lines>]
         if line.len() >= 40 && line.chars().take(40).all(|c| c.is_ascii_hexdigit()) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() >= 3 {
-                if let Ok(ln) = parts[2].parse::<usize>() {
-                    // Save previous entry if we have one
-                    if let (Some(prev_line), Some(author), Some(date)) =
-                        (current_line, current_author.take(), current_date.take())
-                    {
-                        result.insert(prev_line, BlameInfo { author, date });
-                    }
-                    current_line = Some(ln);
+            // Save the previous entry before starting a new one
+            if let (Some(prev_line), Some(hash)) = (current_line, &current_hash) {
+                if let Some((author, date)) = current_author
+                    .take()
+                    .zip(current_date.take())
+                    .or_else(|| commit_cache.get(hash).cloned())
+                {
+                    // Cache this commit's info if we had full headers
+                    commit_cache
+                        .entry(hash.clone())
+                        .or_insert_with(|| (author.clone(), date));
+                    result.insert(prev_line, BlameInfo { author, date });
                 }
             }
+
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 3 {
+                current_hash = Some(parts[0].to_string());
+                current_line = parts[2].parse::<usize>().ok();
+            }
+            current_author = None;
+            current_date = None;
         } else if let Some(rest) = line.strip_prefix("author ") {
             current_author = Some(rest.to_string());
         } else if let Some(rest) = line.strip_prefix("author-time ") {
@@ -94,11 +112,17 @@ fn parse_porcelain_blame(output: &str) -> Result<HashMap<usize, BlameInfo>, Stri
         }
     }
 
-    // Don't forget the last entry
-    if let (Some(line_num), Some(author), Some(date)) =
-        (current_line, current_author, current_date)
-    {
-        result.insert(line_num, BlameInfo { author, date });
+    // Handle the last entry
+    if let (Some(line_num), Some(hash)) = (current_line, &current_hash) {
+        if let Some((author, date)) = current_author
+            .zip(current_date)
+            .or_else(|| commit_cache.get(hash).cloned())
+        {
+            commit_cache
+                .entry(hash.clone())
+                .or_insert_with(|| (author.clone(), date));
+            result.insert(line_num, BlameInfo { author, date });
+        }
     }
 
     Ok(result)
@@ -144,5 +168,35 @@ filename test.rs
     fn test_parse_empty_blame() {
         let result = parse_porcelain_blame("").unwrap();
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_parse_multiline_same_commit() {
+        // Second line from same commit omits author/time headers
+        let output = "\
+abcdef1234567890abcdef1234567890abcdef12 1 1 2
+author Alice
+author-mail <alice@example.com>
+author-time 1700000000
+author-tz +0000
+committer Alice
+committer-mail <alice@example.com>
+committer-time 1700000000
+committer-tz +0000
+summary Initial commit
+filename test.rs
+\t// TODO: fix this
+abcdef1234567890abcdef1234567890abcdef12 2 2
+\t// FIXME: also broken
+";
+        let result = parse_porcelain_blame(output).unwrap();
+        assert_eq!(result.len(), 2);
+
+        let info1 = result.get(&1).unwrap();
+        assert_eq!(info1.author, "Alice");
+
+        let info2 = result.get(&2).unwrap();
+        assert_eq!(info2.author, "Alice");
+        assert_eq!(info2.date, NaiveDate::from_ymd_opt(2023, 11, 14).unwrap());
     }
 }

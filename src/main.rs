@@ -70,7 +70,7 @@ fn run(cli: &Cli) -> Result<(), String> {
     // Check fail-on gate before output
     let should_fail = cli.fail_on.and_then(|max_days| {
         items.iter().any(|item| {
-            item.days_ago.is_some_and(|d| d > max_days)
+            item.days_ago.is_some_and(|d| d >= max_days)
         }).then_some(max_days)
     });
 
@@ -99,7 +99,7 @@ fn run(cli: &Cli) -> Result<(), String> {
             .filter(|i| i.days_ago.is_some_and(|d| d > max_days))
             .count();
         eprintln!(
-            "CI gate: {} item(s) older than {} days",
+            "CI gate: {} item(s) aged {} days or more",
             count, max_days
         );
         process::exit(1);
