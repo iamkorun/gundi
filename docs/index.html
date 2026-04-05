@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>gundi — Unearth your forgotten code debt</title>
+    <meta name="description" content="TODO scanner with git blame age tracking. Find ancient code debt, see who left it, and gate your CI.">
+    <meta property="og:title" content="gundi — Unearth your forgotten code debt">
+    <meta property="og:description" content="TODO scanner with git blame age tracking. Color-coded output, filters, CI gate.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://iamkorun.github.io/gundi">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="gundi — Unearth your forgotten code debt">
+    <meta name="twitter:description" content="TODO scanner with git blame age tracking. Find ancient code debt, see who left it, and gate your CI.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        surface: {
+                            0: '#0a0a0f',
+                            1: '#12121a',
+                            2: '#1a1a25',
+                            3: '#242433',
+                        },
+                        accent: {
+                            DEFAULT: '#c084fc',
+                            dim: '#a855f7',
+                            glow: '#e9d5ff',
+                        },
+                        debt: {
+                            red: '#f87171',
+                            yellow: '#fbbf24',
+                            green: '#4ade80',
+                        },
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: #0a0a0f;
+            color: #e2e8f0;
+        }
+        .terminal {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .glow-border {
+            box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.15), 0 0 30px -5px rgba(192, 132, 252, 0.1);
+        }
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+        .fade-in {
+            animation: fadeIn 0.6s ease-out both;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .feature-card:hover {
+            border-color: rgba(192, 132, 252, 0.3);
+            background-color: rgba(192, 132, 252, 0.04);
+        }
+        .tab-active {
+            background-color: rgba(192, 132, 252, 0.15);
+            color: #e9d5ff;
+            border-color: #c084fc;
+        }
+        .copy-svg { display: inline; }
+        .check-svg { display: none; }
+        .copied .copy-svg { display: none; }
+        .copied .check-svg { display: inline; }
+    </style>
+</head>
+<body class="min-h-screen">
+    <!-- Nav -->
+    <nav class="fixed top-0 w-full z-50 bg-surface-0/80 backdrop-blur-md border-b border-white/5">
+        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="#" class="font-bold text-lg text-white tracking-tight">gundi</a>
+            <div class="flex items-center gap-6">
+                <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
+                <a href="#install" class="text-sm text-gray-400 hover:text-white transition-colors">Install</a>
+                <a href="#demo" class="text-sm text-gray-400 hover:text-white transition-colors">Demo</a>
+                <a href="https://github.com/iamkorun/gundi" class="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero -->
+    <section class="pt-32 pb-20 px-6">
+        <div class="max-w-3xl mx-auto text-center fade-in">
+            <div class="text-5xl mb-6">&#x1F98C;</div>
+            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
+                gundi
+            </h1>
+            <p class="text-lg sm:text-xl text-gray-400 mb-10 max-w-xl mx-auto">
+                Unearth your forgotten code debt &mdash; TODO scanner with git blame age tracking
+            </p>
+
+            <!-- Install command -->
+            <div class="inline-flex items-center gap-3 bg-surface-2 rounded-lg px-5 py-3 glow-border cursor-pointer copy-btn group"
+                 onclick="copyInstall(this)" role="button" tabindex="0" aria-label="Click to copy install command">
+                <span class="terminal text-sm text-accent-glow select-all">cargo install gundi</span>
+                <span class="text-gray-500 group-hover:text-accent transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                    </svg>
+                </span>
+                <span class="text-xs text-gray-500 group-hover:text-gray-400 transition-colors" id="copy-label">click to copy</span>
+            </div>
+
+            <div class="mt-8 flex items-center justify-center gap-4">
+                <a href="https://github.com/iamkorun/gundi" class="inline-flex items-center gap-2 bg-accent/10 hover:bg-accent/20 text-accent-glow px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-accent/20">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.1-.4-.6-1.6.1-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.2.9 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .3"/></svg>
+                    Star on GitHub
+                </a>
+                <a href="https://github.com/iamkorun/gundi" class="inline-flex items-center gap-2">
+                    <img src="https://img.shields.io/github/stars/iamkorun/gundi?style=flat-square&color=c084fc&labelColor=1a1a25" alt="GitHub stars">
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="py-20 px-6">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold text-white text-center mb-12">What it does</h2>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
+                    <div class="text-2xl mb-3">&#x1F50D;</div>
+                    <h3 class="font-semibold text-white mb-2">Scan everything</h3>
+                    <p class="text-sm text-gray-400">Finds TODO, FIXME, HACK, BUG, and XXX comments across your entire codebase with parallel file walking.</p>
+                </div>
+                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
+                    <div class="text-2xl mb-3">&#x1F4C5;</div>
+                    <h3 class="font-semibold text-white mb-2">Age tracking</h3>
+                    <p class="text-sm text-gray-400">Runs git blame on each comment to show who wrote it, when, and how many days it has been sitting there.</p>
+                </div>
+                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
+                    <div class="text-2xl mb-3">&#x1F6A8;</div>
+                    <h3 class="font-semibold text-white mb-2">CI gate</h3>
+                    <p class="text-sm text-gray-400">Use <code class="terminal text-xs bg-surface-3 px-1.5 py-0.5 rounded">--fail-on 90</code> to block merges when any debt is older than your threshold.</p>
+                </div>
+                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
+                    <div class="text-2xl mb-3">&#x1F3AF;</div>
+                    <h3 class="font-semibold text-white mb-2">Filter and export</h3>
+                    <p class="text-sm text-gray-400">Filter by type, author, or age. Output as a colored table, JSON, or Markdown for reports and dashboards.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terminal Demo -->
+    <section id="demo" class="py-20 px-6">
+        <div class="max-w-4xl mx-auto">
+            <h2 class="text-2xl font-bold text-white text-center mb-12">See it in action</h2>
+            <div class="bg-surface-1 border border-white/5 rounded-xl overflow-hidden glow-border">
+                <div class="flex items-center gap-2 px-4 py-3 bg-surface-2 border-b border-white/5">
+                    <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
+                    <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
+                    <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
+                    <span class="ml-2 terminal text-xs text-gray-500">terminal</span>
+                </div>
+                <div class="p-6 terminal text-sm leading-relaxed overflow-x-auto">
+                    <div class="text-gray-400">$ <span class="text-white">gundi .</span></div>
+                    <div class="mt-4 text-gray-500">
+                        <div>TYPE   FILE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; LINE&nbsp;&nbsp; AUTHOR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AGE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; TEXT</div>
+                        <div>--------------------------------------------------------------------------------------------------------------</div>
+                    </div>
+                    <div class="text-debt-red">TODO&nbsp;&nbsp; src/parser.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 42&nbsp;&nbsp;&nbsp;&nbsp; alice&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 142d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; refactor this loop</div>
+                    <div class="text-debt-yellow">FIXME&nbsp; src/handler.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 87&nbsp;&nbsp;&nbsp;&nbsp; bob&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; handle timeout case</div>
+                    <div class="text-debt-green">HACK&nbsp;&nbsp; tests/integration.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 15&nbsp;&nbsp;&nbsp;&nbsp; charlie&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temporary workaround</div>
+                    <div class="text-debt-red">TODO&nbsp;&nbsp; src/config.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 201&nbsp;&nbsp;&nbsp; alice&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 310d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; support YAML format</div>
+                    <div class="mt-4 text-gray-400">Total: 4 items</div>
+                </div>
+            </div>
+            <p class="text-center text-sm text-gray-500 mt-4">
+                <span class="text-debt-red">Red</span> = older than 90 days &middot;
+                <span class="text-debt-yellow">Yellow</span> = older than 30 days &middot;
+                <span class="text-debt-green">Green</span> = recent
+            </p>
+        </div>
+    </section>
+
+    <!-- Install -->
+    <section id="install" class="py-20 px-6">
+        <div class="max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-white text-center mb-12">Install</h2>
+            <div class="bg-surface-1 border border-white/5 rounded-xl overflow-hidden">
+                <div class="flex border-b border-white/5">
+                    <button onclick="showTab('cargo')" id="tab-cargo" class="tab-active px-5 py-3 text-sm font-medium border-b-2 transition-colors">cargo install</button>
+                    <button onclick="showTab('source')" id="tab-source" class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-300 border-b-2 border-transparent transition-colors">From source</button>
+                </div>
+                <div id="panel-cargo" class="p-6">
+                    <div class="flex items-center justify-between bg-surface-2 rounded-lg px-4 py-3">
+                        <code class="terminal text-sm text-accent-glow">cargo install gundi</code>
+                        <button onclick="copyText('cargo install gundi', this)" class="text-gray-500 hover:text-accent transition-colors copy-btn" aria-label="Copy">
+                            <svg class="w-4 h-4 copy-svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <rect x="9" y="9" width="13" height="13" rx="2"/>
+                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                            </svg>
+                            <svg class="w-4 h-4 check-svg text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M20 6L9 17l-5-5"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div id="panel-source" class="p-6 hidden">
+                    <div class="bg-surface-2 rounded-lg px-4 py-3 terminal text-sm text-gray-300 space-y-1">
+                        <div>git clone https://github.com/iamkorun/gundi.git</div>
+                        <div>cd gundi</div>
+                        <div>cargo install --path .</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-16 px-6 border-t border-white/5">
+        <div class="max-w-3xl mx-auto text-center">
+            <div class="flex items-center justify-center gap-6 mb-6">
+                <a href="https://github.com/iamkorun/gundi" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
+                <a href="https://crates.io/crates/gundi" class="text-sm text-gray-400 hover:text-white transition-colors">crates.io</a>
+                <a href="https://buymeacoffee.com/iamkorun" class="text-sm text-gray-400 hover:text-white transition-colors">Buy Me a Coffee</a>
+            </div>
+            <p class="text-xs text-gray-600">MIT License &middot; Built with Rust</p>
+        </div>
+    </footer>
+
+    <script>
+        function copyInstall(el) {
+            navigator.clipboard.writeText('cargo install gundi');
+            var label = document.getElementById('copy-label');
+            label.textContent = 'copied!';
+            label.classList.add('text-accent');
+            setTimeout(function() {
+                label.textContent = 'click to copy';
+                label.classList.remove('text-accent');
+            }, 2000);
+        }
+
+        function copyText(text, btn) {
+            navigator.clipboard.writeText(text);
+            btn.classList.add('copied');
+            setTimeout(function() {
+                btn.classList.remove('copied');
+            }, 2000);
+        }
+
+        function showTab(name) {
+            document.querySelectorAll('[id^="panel-"]').forEach(function(p) { p.classList.add('hidden'); });
+            document.querySelectorAll('[id^="tab-"]').forEach(function(t) {
+                t.classList.remove('tab-active');
+                t.classList.add('text-gray-500', 'border-transparent');
+            });
+            document.getElementById('panel-' + name).classList.remove('hidden');
+            var tab = document.getElementById('tab-' + name);
+            tab.classList.add('tab-active');
+            tab.classList.remove('text-gray-500', 'border-transparent');
+        }
+    </script>
+</body>
+</html>
