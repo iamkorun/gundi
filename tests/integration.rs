@@ -148,12 +148,7 @@ fn test_type_filter() {
     let dir = setup_plain_dir();
 
     gundi()
-        .args([
-            "--no-blame",
-            "--type",
-            "todo",
-            dir.path().to_str().unwrap(),
-        ])
+        .args(["--no-blame", "--type", "todo", dir.path().to_str().unwrap()])
         .assert()
         .success()
         .stdout(predicate::str::contains("TODO"))
@@ -256,4 +251,77 @@ fn test_clean_codebase() {
         .assert()
         .success()
         .stdout(predicate::str::contains("No code debt found"));
+}
+
+#[test]
+fn test_verbose_reports_scan_progress() {
+    let dir = setup_plain_dir();
+
+    gundi()
+        .args(["--verbose", "--no-blame", dir.path().to_str().unwrap()])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("scanning"))
+        .stderr(predicate::str::contains("scan complete"));
+}
+
+#[test]
+fn test_quiet_with_fail_on_suppresses_output() {
+    let dir = setup_git_repo();
+
+    // --quiet + --fail-on triggered: no stdout, no stderr message, just exit code 1
+    gundi()
+        .args(["--quiet", "--fail-on", "0", dir.path().to_str().unwrap()])
+        .assert()
+        .code(1)
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn test_verbose_and_quiet_are_mutually_exclusive() {
+    let dir = setup_plain_dir();
+
+    gundi()
+        .args([
+            "--verbose",
+            "--quiet",
+            "--no-blame",
+            dir.path().to_str().unwrap(),
+        ])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_unicode_content_does_not_panic() {
+    // Regression test: byte-slicing in the table formatter previously panicked
+    // on multi-byte UTF-8 boundaries.
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("unicode.rs");
+    fs::write(
+        &file,
+        "// TODO: 修复这个非常非常长的注释问题 — handle αβγ and 🦀 properly\n",
+    )
+    .unwrap();
+
+    gundi()
+        .args(["--no-blame", dir.path().to_str().unwrap()])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("TODO"))
+        .stdout(predicate::str::contains("Total: 1 items"));
+}
+
+#[test]
+fn test_path_is_file_not_directory() {
+    let dir = TempDir::new().unwrap();
+    let file = dir.path().join("single.rs");
+    fs::write(&file, "// TODO: x\n").unwrap();
+
+    gundi()
+        .arg(file.to_str().unwrap())
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("not a directory"));
 }

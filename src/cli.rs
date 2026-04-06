@@ -39,4 +39,12 @@ pub struct Cli {
     /// Skip git blame (faster, no age/author info)
     #[arg(long)]
     pub no_blame: bool,
+
+    /// Print scan progress and skipped files to stderr
+    #[arg(short, long, conflicts_with = "quiet")]
+    pub verbose: bool,
+
+    /// Suppress non-essential output (errors and results only)
+    #[arg(short, long, conflicts_with = "verbose")]
+    pub quiet: bool,
 }
