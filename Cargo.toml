@@ -4,7 +4,12 @@ version = "0.1.0"
 edition = "2024"
 description = "Unearth your forgotten code debt — TODO scanner with git blame age tracking"
 license = "MIT"
-repository = "https://github.com/hyperb1iss/gundi"
+repository = "https://github.com/iamkorun/gundi"
+homepage = "https://iamkorun.github.io/gundi"
+documentation = "https://github.com/iamkorun/gundi#readme"
+readme = "README.md"
+keywords = ["cli", "todo", "git", "blame", "code-debt"]
+categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }

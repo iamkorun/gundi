@@ -27,7 +27,10 @@ pub fn apply_filters(items: Vec<DebtItem>, filters: &Filters) -> Vec<DebtItem> {
             if let Some(ref author_filter) = filters.author {
                 match &item.author {
                     Some(author) => {
-                        if !author.to_lowercase().contains(&author_filter.to_lowercase()) {
+                        if !author
+                            .to_lowercase()
+                            .contains(&author_filter.to_lowercase())
+                        {
                             return false;
                         }
                     }

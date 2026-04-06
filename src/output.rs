@@ -4,6 +4,30 @@ use colored::Colorize;
 
 use crate::types::{DebtItem, ScanSummary};
 
+/// Truncate a string to at most `max_chars` characters, appending `…` if truncated.
+/// Operates on Unicode scalar values, not bytes — safe for multi-byte input.
+fn truncate_chars(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        return s.to_string();
+    }
+    let keep = max_chars.saturating_sub(1);
+    let truncated: String = s.chars().take(keep).collect();
+    format!("{}…", truncated)
+}
+
+/// Truncate a string from the start, keeping the last `max_chars` characters.
+/// Useful for file paths where the tail (filename) matters more than the head.
+fn truncate_chars_end(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        return s.to_string();
+    }
+    let skip = char_count - max_chars.saturating_sub(1);
+    let tail: String = s.chars().skip(skip).collect();
+    format!("…{}", tail)
+}
+
 /// Format items as a colored terminal table.
 pub fn format_table(items: &[DebtItem]) -> String {
     if items.is_empty() {
@@ -26,23 +50,9 @@ pub fn format_table(items: &[DebtItem]) -> String {
         };
 
         let author_str = item.author.as_deref().unwrap_or("unknown");
-        let author_display = if author_str.len() > 18 {
-            format!("{}...", &author_str[..15])
-        } else {
-            author_str.to_string()
-        };
-
-        let file_display = if item.file.len() > 38 {
-            format!("...{}", &item.file[item.file.len() - 35..])
-        } else {
-            item.file.clone()
-        };
-
-        let text_display = if item.text.len() > 50 {
-            format!("{}...", &item.text[..47])
-        } else {
-            item.text.clone()
-        };
+        let author_display = truncate_chars(author_str, 18);
+        let file_display = truncate_chars_end(&item.file, 38);
+        let text_display = truncate_chars(&item.text, 50);
 
         let row = format!(
             "{:<6} {:<40} {:<6} {:<20} {:<12} {}",
@@ -262,5 +272,55 @@ mod tests {
         assert!(output.contains("2 total items"));
         assert!(output.contains("By Type:"));
         assert!(output.contains("By Author:"));
+    }
+
+    #[test]
+    fn test_truncate_chars_short() {
+        assert_eq!(truncate_chars("hello", 10), "hello");
+        assert_eq!(truncate_chars("", 10), "");
+    }
+
+    #[test]
+    fn test_truncate_chars_long_ascii() {
+        let result = truncate_chars("abcdefghijklmnop", 10);
+        assert!(result.ends_with('…'));
+        assert_eq!(result.chars().count(), 10);
+    }
+
+    #[test]
+    fn test_truncate_chars_multi_byte_safe() {
+        // 한국어 are 3-byte UTF-8 characters; byte slicing would split them.
+        // truncate_chars must operate on chars, not bytes.
+        let input = "한국어한국어한국어한국어";
+        let result = truncate_chars(input, 5);
+        assert_eq!(result.chars().count(), 5);
+        assert!(result.ends_with('…'));
+    }
+
+    #[test]
+    fn test_truncate_chars_end_keeps_tail() {
+        // Long file paths should keep the filename (tail) visible.
+        let result = truncate_chars_end("very/deeply/nested/path/to/file.rs", 15);
+        assert!(result.starts_with('…'));
+        assert!(result.ends_with("file.rs"));
+        assert_eq!(result.chars().count(), 15);
+    }
+
+    #[test]
+    fn test_format_table_with_unicode_does_not_panic() {
+        // Regression: byte slicing previously panicked on multi-byte boundaries.
+        let item = DebtItem {
+            file: "src/한국어/very/long/path/to/some/deeply/nested/file.rs".to_string(),
+            line: 42,
+            comment_type: CommentType::Todo,
+            text: "修复这个非常非常非常长的注释 with αβγ and 🦀 emoji to ensure no panic"
+                .to_string(),
+            author: Some("作者非常长的名字".to_string()),
+            date: Some(NaiveDate::from_ymd_opt(2024, 1, 1).unwrap()),
+            days_ago: Some(100),
+        };
+        let result = format_table(&[item]);
+        assert!(result.contains("TODO"));
+        assert!(result.contains("Total: 1 items"));
     }
 }
