@@ -213,10 +213,14 @@ Contributions are welcome. Please open an issue first to discuss what you would 
 
 ---
 
-<div align="center">
+## Star History
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-☕-orange?style=flat-square)](https://buymeacoffee.com/iamkorun)
+<a href="https://star-history.com/#iamkorun/gundi&Date">
+  <img src="https://api.star-history.com/svg?repos=iamkorun/gundi&type=Date" alt="Star History Chart" width="600">
+</a>
 
-Made with Rust.
+---
 
-</div>
+<p align="center">
+  <a href="https://buymeacoffee.com/iamkorun"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" width="200"></a>
+</p>
