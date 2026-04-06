@@ -6,9 +6,11 @@
 
 TODO scanner with git blame age tracking
 
-[![GitHub stars](https://img.shields.io/github/stars/iamkorun/gundi?style=flat-square)](https://github.com/iamkorun/gundi/stargazers)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/iamkorun/gundi/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/iamkorun/gundi/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/gundi?style=flat-square)](https://crates.io/crates/gundi)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/iamkorun/gundi?style=flat-square)](https://github.com/iamkorun/gundi/stargazers)
+[![Buy Me a Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-ffdd00?style=flat-square&logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/iamkorun)
 
 <br />
 
@@ -145,6 +147,22 @@ gundi --md .
 gundi --no-blame .
 ```
 
+### Verbose mode (debug slow scans)
+
+```sh
+gundi --verbose .
+```
+
+Prints scan progress, blame timing, and any files that were skipped (binaries, permission errors, invalid UTF-8) to stderr.
+
+### Quiet mode (silent CI gate)
+
+```sh
+gundi --quiet --fail-on 90 .
+```
+
+Suppresses all output. Only the exit code matters — useful in CI when you just want a pass/fail signal.
+
 ### Combine filters
 
 ```sh
@@ -192,6 +210,8 @@ jobs:
 - **CI gate** — `--fail-on N` exits non-zero when debt exceeds your threshold
 - **Summary mode** — quick overview of debt distribution by type and author
 - **No-blame mode** — skip git blame for faster scans when you just want a count
+- **Verbose / quiet modes** — surface skipped files for debugging, or silence everything for CI
+- **UTF-8 safe** — handles Unicode authors, paths, and comments without panicking
 
 ---
 
