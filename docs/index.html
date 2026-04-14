@@ -1,326 +1,694 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>gundi — Unearth your forgotten code debt</title>
-    <meta name="description" content="TODO scanner with git blame age tracking. Find ancient code debt, see who left it, and gate your CI.">
-    <meta property="og:title" content="gundi — Unearth your forgotten code debt">
-    <meta property="og:description" content="TODO scanner with git blame age tracking. Color-coded output, filters, CI gate.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://iamkorun.github.io/gundi">
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="gundi — Unearth your forgotten code debt">
-    <meta name="twitter:description" content="TODO scanner with git blame age tracking. Find ancient code debt, see who left it, and gate your CI.">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        surface: {
-                            0: '#0a0a0f',
-                            1: '#12121a',
-                            2: '#1a1a25',
-                            3: '#242433',
-                        },
-                        accent: {
-                            DEFAULT: '#c084fc',
-                            dim: '#a855f7',
-                            glow: '#e9d5ff',
-                        },
-                        debt: {
-                            red: '#f87171',
-                            yellow: '#fbbf24',
-                            green: '#4ade80',
-                        },
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background-color: #0a0a0f;
-            color: #e2e8f0;
-        }
-        .terminal {
-            font-family: 'JetBrains Mono', monospace;
-        }
-        .glow-border {
-            box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.15), 0 0 30px -5px rgba(192, 132, 252, 0.1);
-        }
-        .copy-btn:active {
-            transform: scale(0.95);
-        }
-        .fade-in {
-            animation: fadeIn 0.6s ease-out both;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(12px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .feature-card:hover {
-            border-color: rgba(192, 132, 252, 0.3);
-            background-color: rgba(192, 132, 252, 0.04);
-        }
-        .tab-active {
-            background-color: rgba(192, 132, 252, 0.15);
-            color: #e9d5ff;
-            border-color: #c084fc;
-        }
-        .copy-svg { display: inline; }
-        .check-svg { display: none; }
-        .copied .copy-svg { display: none; }
-        .copied .check-svg { display: inline; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="dark light" />
+  <title>🐾 gundi — Unearth your forgotten code debt</title>
+  <meta name="description" content="gundi is a Rust CLI that scans TODO, FIXME, HACK, and XXX comments, runs git blame, and shows how long each has been rotting. Color-coded, filterable, CI-gateable." />
+  <meta property="og:title" content="gundi — Unearth your forgotten code debt" />
+  <meta property="og:description" content="Rust CLI that scans TODOs, runs git blame, and surfaces the oldest debt. Gate your CI on it." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://iamkorun.github.io/gundi" />
+  <meta property="og:image" content="https://iamkorun.github.io/gundi/og.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="gundi — Unearth your forgotten code debt" />
+  <meta name="twitter:description" content="Rust CLI that scans TODOs, runs git blame, and surfaces the oldest debt. Gate your CI on it." />
+  <meta name="twitter:image" content="https://iamkorun.github.io/gundi/og.png" />
+  <link rel="canonical" href="https://iamkorun.github.io/gundi" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('forge-theme');
+        if (t === 'light') { document.documentElement.classList.remove('dark'); document.documentElement.classList.add('light'); }
+        else { document.documentElement.classList.add('dark'); document.documentElement.classList.remove('light'); }
+      } catch(_){ document.documentElement.classList.add('dark'); }
+    })();
+  </script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cabinet Grotesk', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    :root { color-scheme: dark light; }
+    html { scroll-behavior: smooth; }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    body {
+      font-family: 'Cabinet Grotesk', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100dvh;
+    }
+
+    /* ----- Dark theme (default) ----- */
+    .dark body { background: #1C1A17; color: #E8E0D4; }
+    .dark .bg-surface { background: #1C1A17; }
+    .dark .bg-surface-2 { background: #252320; }
+    .dark .bg-surface-3 { background: #2E2B27; }
+    .dark .heading { color: #F5F0E8; }
+    .dark .subtext { color: #A69E93; }
+    .dark .muted { color: #6B6560; }
+    .dark .faint { color: #4A4540; }
+    .dark .border-soft { border-color: rgba(255,255,255,0.06); }
+    .dark .border-medium { border-color: rgba(255,255,255,0.1); }
+
+    /* ----- Light theme ----- */
+    .light body { background: #FAF6EF; color: #2E2B27; }
+    .light .bg-surface { background: #FAF6EF; }
+    .light .bg-surface-2 { background: #FFFFFF; }
+    .light .bg-surface-3 { background: #F0EAE0; }
+    .light .heading { color: #1C1A17; }
+    .light .subtext { color: #5C554E; }
+    .light .muted { color: #8A8077; }
+    .light .faint { color: #B8AFA4; }
+    .light .border-soft { border-color: rgba(0,0,0,0.08); }
+    .light .border-medium { border-color: rgba(0,0,0,0.12); }
+
+    /* ----- Accent: terracotta (the unearthed-clay color) ----- */
+    .accent { color: #D97757; }
+    .accent-bg { background: #D97757; }
+    .accent-bg-hover:hover { background: #E08766; }
+    .accent-text-inverse { color: #1C1A17; }
+    .dark .accent-glow { box-shadow: 0 0 32px -8px rgba(217, 119, 87, 0.25); }
+    .light .accent-glow { box-shadow: 0 2px 16px -4px rgba(217, 119, 87, 0.2); }
+    .dark .accent-soft { color: #E8A58A; }
+    .light .accent-soft { color: #B85F3C; }
+    .dark .accent-bg-soft { background: rgba(217, 119, 87, 0.12); border: 1px solid rgba(217, 119, 87, 0.25); }
+    .light .accent-bg-soft { background: rgba(217, 119, 87, 0.1); border: 1px solid rgba(217, 119, 87, 0.3); }
+
+    /* ----- Nav ----- */
+    .dark .nav-bg { background: rgba(28, 26, 23, 0.9); border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .light .nav-bg { background: rgba(250, 246, 239, 0.9); border-bottom: 1px solid rgba(0,0,0,0.08); }
+
+    .nav-link { transition: color 0.2s; text-decoration: none; }
+    .dark .nav-link { color: #A69E93; }
+    .dark .nav-link:hover { color: #F5F0E8; }
+    .light .nav-link { color: #5C554E; }
+    .light .nav-link:hover { color: #1C1A17; }
+
+    /* ----- Terminal ----- */
+    .dark .terminal {
+      background: #17140F;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .light .terminal {
+      background: #2E2B27;
+      border: 1px solid rgba(46, 43, 39, 0.15);
+    }
+    .terminal-bar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; }
+    .dark .terminal-bar-bg { background: #1F1C17; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .light .terminal-bar-bg { background: #3A3733; border-bottom: 1px solid rgba(255,255,255,0.08); }
+
+    .terminal-body { font-family: 'JetBrains Mono', monospace; }
+    .terminal-text-default { color: #E8E0D4; }
+    .terminal-text-muted { color: #6B6560; }
+    .terminal-text-dim { color: #4A4540; }
+
+    /* Debt severity colors — warm */
+    .debt-hot { color: #E07070; }       /* rotten, >90d */
+    .debt-warm { color: #E8B94A; }      /* aging, >30d */
+    .debt-fresh { color: #7FB069; }     /* recent, <30d */
+
+    /* YAML keyword */
+    .yaml-key { color: #D97757; }
+    .yaml-comment { color: #6B6560; font-style: italic; }
+
+    /* ----- Install pill ----- */
+    .dark .install-pill {
+      background: #252320;
+      border: 1.5px solid rgba(217, 119, 87, 0.3);
+    }
+    .light .install-pill {
+      background: #FFFFFF;
+      border: 1.5px solid rgba(217, 119, 87, 0.4);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    /* ----- Cards & zigzag rows ----- */
+    .dark .card {
+      background: #252320;
+      border: 1px solid rgba(255,255,255,0.06);
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+    }
+    .dark .card:hover {
+      border-color: rgba(217, 119, 87, 0.3);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 28px rgba(217, 119, 87, 0.05);
+    }
+    .light .card {
+      background: #FFFFFF;
+      border: 1px solid rgba(0,0,0,0.08);
+      transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+    }
+    .light .card:hover {
+      border-color: rgba(217, 119, 87, 0.4);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 28px rgba(0,0,0,0.06);
+    }
+
+    /* ----- Buttons ----- */
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 8px;
+      font-weight: 600; font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.2s;
+      background: #D97757; color: #1C1A17;
+    }
+    .btn-primary:hover { background: #E08766; box-shadow: 0 4px 20px rgba(217, 119, 87, 0.25); }
+    .btn-primary:active { transform: scale(0.98); }
+
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 22px; border-radius: 8px;
+      font-weight: 500; font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .dark .btn-secondary { color: #A69E93; border: 1px solid rgba(255,255,255,0.1); }
+    .dark .btn-secondary:hover { color: #E8A58A; border-color: rgba(217, 119, 87, 0.35); }
+    .light .btn-secondary { color: #5C554E; border: 1px solid rgba(0,0,0,0.12); }
+    .light .btn-secondary:hover { color: #B85F3C; border-color: rgba(217, 119, 87, 0.4); }
+    .btn-secondary:active { transform: scale(0.98); }
+
+    /* ----- Copy button ----- */
+    .copy-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px; border-radius: 6px;
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-size: 0.78rem; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+      min-height: 36px;
+    }
+    .dark .copy-btn { color: #A69E93; border: 1px solid rgba(255,255,255,0.1); background: transparent; }
+    .dark .copy-btn:hover { background: rgba(217, 119, 87, 0.1); color: #E8A58A; border-color: rgba(217, 119, 87, 0.3); }
+    .light .copy-btn { color: #5C554E; border: 1px solid rgba(0,0,0,0.12); background: transparent; }
+    .light .copy-btn:hover { background: rgba(217, 119, 87, 0.08); color: #B85F3C; border-color: rgba(217, 119, 87, 0.35); }
+    .copy-btn:active { transform: scale(0.97); }
+    .copy-btn.copied { color: #7FB069 !important; border-color: rgba(127, 176, 105, 0.4) !important; }
+
+    /* ----- Theme toggle ----- */
+    .theme-toggle {
+      width: 44px; height: 44px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 8px; cursor: pointer; transition: all 0.2s;
+    }
+    .dark .theme-toggle { color: #A69E93; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); }
+    .dark .theme-toggle:hover { color: #E8A58A; background: rgba(217, 119, 87, 0.08); }
+    .light .theme-toggle { color: #5C554E; background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.08); }
+    .light .theme-toggle:hover { color: #B85F3C; background: rgba(217, 119, 87, 0.08); }
+
+    /* ----- Toast ----- */
+    .dark .toast { background: #252320; border: 1px solid rgba(127, 176, 105, 0.35); color: #7FB069; }
+    .light .toast { background: #FFFFFF; border: 1px solid rgba(127, 176, 105, 0.4); color: #4A8A3A; box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    /* ----- Tabs ----- */
+    .tab-btn {
+      padding: 10px 18px; font-size: 0.85rem; font-weight: 500;
+      border-bottom: 2px solid transparent;
+      cursor: pointer; background: transparent;
+      transition: all 0.2s;
+      font-family: 'Cabinet Grotesk', sans-serif;
+    }
+    .dark .tab-btn { color: #6B6560; }
+    .dark .tab-btn:hover { color: #A69E93; }
+    .light .tab-btn { color: #8A8077; }
+    .light .tab-btn:hover { color: #5C554E; }
+    .tab-btn.active { color: #D97757; border-bottom-color: #D97757; }
+
+    /* ----- Section alt bg ----- */
+    .dark .section-alt { background: rgba(37, 35, 32, 0.4); }
+    .light .section-alt { background: rgba(240, 234, 224, 0.4); }
+
+    /* ----- Scroll reveal ----- */
+    .scroll-reveal {
+      opacity: 0;
+      transform: translateY(14px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .scroll-reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .scroll-reveal { opacity: 1; transform: none; transition: none; }
+    }
+
+    /* ----- Hero fade ----- */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .anim-fade-up { animation: fadeUp 0.55s ease-out forwards; opacity: 0; }
+    .d1 { animation-delay: 0.05s; }
+    .d2 { animation-delay: 0.15s; }
+    .d3 { animation-delay: 0.25s; }
+    .d4 { animation-delay: 0.35s; }
+
+    /* ----- Zigzag rows ----- */
+    .zigzag-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 56px;
+      align-items: center;
+    }
+    .zigzag-row.reverse .zigzag-visual { order: -1; }
+
+    /* ----- Inline code ----- */
+    .inline-code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8em;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .dark .inline-code { background: rgba(217, 119, 87, 0.1); color: #E8A58A; border: 1px solid rgba(217, 119, 87, 0.2); }
+    .light .inline-code { background: rgba(217, 119, 87, 0.08); color: #B85F3C; border: 1px solid rgba(217, 119, 87, 0.25); }
+
+    /* ----- Badge pill ----- */
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 500;
+    }
+
+    /* ----- Mobile responsive ----- */
+    @media (max-width: 768px) {
+      .nav-text-links { display: none !important; }
+      .zigzag-row { grid-template-columns: 1fr !important; gap: 32px !important; }
+      .zigzag-row.reverse .zigzag-visual { order: 0; }
+      .hero-install-row { flex-direction: column; align-items: stretch !important; }
+      .footer-inner { flex-direction: column; text-align: center; gap: 16px !important; }
+    }
+    @media (max-width: 480px) {
+      .install-pill-inner { flex-direction: column !important; gap: 10px !important; align-items: stretch !important; }
+      .terminal-body { font-size: 0.72rem !important; }
+    }
+  </style>
 </head>
-<body class="min-h-screen">
-    <!-- Nav -->
-    <nav class="fixed top-0 w-full z-50 bg-surface-0/80 backdrop-blur-md border-b border-white/5">
-        <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-            <a href="#" class="font-bold text-lg text-white tracking-tight">gundi</a>
-            <div class="flex items-center gap-6">
-                <a href="#features" class="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
-                <a href="#demo" class="text-sm text-gray-400 hover:text-white transition-colors">Demo</a>
-                <a href="#install" class="text-sm text-gray-400 hover:text-white transition-colors">Install</a>
-                <a href="#ci" class="text-sm text-gray-400 hover:text-white transition-colors">CI</a>
-                <a href="https://github.com/iamkorun/gundi" class="text-sm text-gray-400 hover:text-white transition-colors flex items-center gap-1.5">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-                    GitHub
-                </a>
-            </div>
+<body>
+
+  <!-- Toast -->
+  <div id="copy-toast" class="toast" style="position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-60px);z-index:100;padding:10px 18px;border-radius:8px;font-size:0.82rem;font-weight:500;opacity:0;transition:all 0.25s ease;pointer-events:none;">
+    Copied to clipboard
+  </div>
+
+  <!-- Nav -->
+  <nav class="nav-bg" style="position:fixed;top:0;left:0;right:0;z-index:50;backdrop-filter:blur(12px);">
+    <div style="max-width:1120px;margin:0 auto;padding:0 24px;height:60px;display:flex;align-items:center;justify-content:space-between;">
+      <a href="#" class="heading" style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:0.92rem;text-decoration:none;">🐾 gundi</a>
+      <div style="display:flex;align-items:center;gap:18px;">
+        <div class="nav-text-links" style="display:flex;align-items:center;gap:18px;">
+          <a href="#demo" class="nav-link" style="font-size:0.85rem;">Demo</a>
+          <a href="#install" class="nav-link" style="font-size:0.85rem;">Install</a>
+          <a href="#features" class="nav-link" style="font-size:0.85rem;">Features</a>
+          <a href="#ci" class="nav-link" style="font-size:0.85rem;">CI</a>
         </div>
-    </nav>
+        <button id="theme-toggle" class="theme-toggle" onclick="toggleTheme()" type="button" aria-label="Toggle theme" aria-pressed="false">
+          <svg id="theme-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg id="theme-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+        <a href="https://github.com/iamkorun/gundi" target="_blank" rel="noopener" class="nav-link"
+           style="display:flex;align-items:center;gap:6px;font-size:0.85rem;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </nav>
 
-    <!-- Hero -->
-    <section class="pt-32 pb-20 px-6">
-        <div class="max-w-3xl mx-auto text-center fade-in">
-            <div class="text-5xl mb-6">&#x1F98C;</div>
-            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
-                gundi
-            </h1>
-            <p class="text-lg sm:text-xl text-gray-400 mb-10 max-w-xl mx-auto">
-                Unearth your forgotten code debt &mdash; TODO scanner with git blame age tracking
-            </p>
+  <!-- Hero (stacked-showcase: tight hero, then big demo below) -->
+  <section style="padding:120px 24px 48px;text-align:center;">
+    <div style="max-width:720px;margin:0 auto;">
+      <div class="anim-fade-up d1 accent-bg-soft badge" style="margin-bottom:24px;">
+        <span style="width:6px;height:6px;border-radius:50%;" class="accent-bg"></span>
+        <span class="accent-soft">Rust · CI-ready · Zero config</span>
+      </div>
+      <h1 class="heading anim-fade-up d2" style="font-size:clamp(3rem,6.5vw,5.25rem);font-weight:800;letter-spacing:-0.035em;line-height:0.98;margin:0 0 20px;">
+        gundi
+      </h1>
+      <p class="subtext anim-fade-up d3" style="font-size:clamp(1.1rem,2vw,1.25rem);line-height:1.5;margin:0 auto 40px;max-width:560px;">
+        The rodent that unearths your oldest TODOs. Scans <span class="inline-code">TODO</span>, <span class="inline-code">FIXME</span>, <span class="inline-code">HACK</span>, <span class="inline-code">XXX</span> — then runs <em>git blame</em> so you know who left it and how long it's been rotting.
+      </p>
+    </div>
+  </section>
 
-            <!-- Install command -->
-            <div class="inline-flex items-center gap-3 bg-surface-2 rounded-lg px-5 py-3 glow-border cursor-pointer copy-btn group"
-                 onclick="copyInstall(this)" role="button" tabindex="0" aria-label="Click to copy install command">
-                <span class="terminal text-sm text-accent-glow select-all">cargo install gundi</span>
-                <span class="text-gray-500 group-hover:text-accent transition-colors">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <rect x="9" y="9" width="13" height="13" rx="2"/>
-                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                    </svg>
-                </span>
-                <span class="text-xs text-gray-500 group-hover:text-gray-400 transition-colors" id="copy-label">click to copy</span>
-            </div>
-
-            <div class="mt-8 flex items-center justify-center gap-4">
-                <a href="https://github.com/iamkorun/gundi" class="inline-flex items-center gap-2 bg-accent/10 hover:bg-accent/20 text-accent-glow px-5 py-2.5 rounded-lg text-sm font-medium transition-colors border border-accent/20">
-                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 .3a12 12 0 00-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.1-.4-.6-1.6.1-3.2 0 0 1-.3 3.4 1.2a11.5 11.5 0 016 0c2.3-1.5 3.3-1.2 3.3-1.2.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.2.9 2.2v3.3c0 .3.2.7.8.6A12 12 0 0012 .3"/></svg>
-                    Star on GitHub
-                </a>
-                <a href="https://github.com/iamkorun/gundi" class="inline-flex items-center gap-2">
-                    <img src="https://img.shields.io/github/stars/iamkorun/gundi?style=flat-square&color=c084fc&labelColor=1a1a25" alt="GitHub stars">
-                </a>
-            </div>
+  <!-- BIG terminal demo as hero's payoff -->
+  <section id="demo" style="padding:0 24px 96px;">
+    <div style="max-width:1040px;margin:0 auto;">
+      <div class="terminal anim-fade-up d4" style="border-radius:14px;overflow:hidden;" class="accent-glow">
+        <div class="terminal-bar terminal-bar-bg">
+          <div style="width:12px;height:12px;border-radius:50%;background:#E07070;"></div>
+          <div style="width:12px;height:12px;border-radius:50%;background:#E8B94A;"></div>
+          <div style="width:12px;height:12px;border-radius:50%;background:#7FB069;"></div>
+          <span style="margin-left:12px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;" class="terminal-text-dim">~/my-project</span>
         </div>
-    </section>
-
-    <!-- Features -->
-    <section id="features" class="py-20 px-6">
-        <div class="max-w-4xl mx-auto">
-            <h2 class="text-2xl font-bold text-white text-center mb-12">What it does</h2>
-            <div class="grid sm:grid-cols-2 gap-4">
-                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
-                    <div class="text-2xl mb-3">&#x1F50D;</div>
-                    <h3 class="font-semibold text-white mb-2">Scan everything</h3>
-                    <p class="text-sm text-gray-400">Finds TODO, FIXME, HACK, BUG, and XXX comments across your entire codebase with parallel file walking.</p>
-                </div>
-                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
-                    <div class="text-2xl mb-3">&#x1F4C5;</div>
-                    <h3 class="font-semibold text-white mb-2">Age tracking</h3>
-                    <p class="text-sm text-gray-400">Runs git blame on each comment to show who wrote it, when, and how many days it has been sitting there.</p>
-                </div>
-                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
-                    <div class="text-2xl mb-3">&#x1F6A8;</div>
-                    <h3 class="font-semibold text-white mb-2">CI gate</h3>
-                    <p class="text-sm text-gray-400">Use <code class="terminal text-xs bg-surface-3 px-1.5 py-0.5 rounded">--fail-on 90</code> to block merges when any debt is older than your threshold.</p>
-                </div>
-                <div class="feature-card bg-surface-1 border border-white/5 rounded-xl p-6 transition-all duration-200">
-                    <div class="text-2xl mb-3">&#x1F3AF;</div>
-                    <h3 class="font-semibold text-white mb-2">Filter and export</h3>
-                    <p class="text-sm text-gray-400">Filter by type, author, or age. Output as a colored table, JSON, or Markdown for reports and dashboards.</p>
-                </div>
-            </div>
+        <div class="terminal-body" style="padding:22px 24px;font-size:0.82rem;line-height:1.9;overflow-x:auto;">
+          <div><span class="terminal-text-dim">$</span> <span class="terminal-text-default">gundi .</span></div>
+          <div style="margin-top:10px;" class="terminal-text-muted"><span class="accent-soft">Scanned</span> 127 files · <span class="accent-soft">Found</span> 4 items · <span class="accent-soft">Blamed</span> in 142ms</div>
+          <div style="margin-top:14px;" class="terminal-text-dim">TYPE   FILE                        LINE   AUTHOR     AGE        TEXT</div>
+          <div class="terminal-text-dim">──────────────────────────────────────────────────────────────────────────────────</div>
+          <div><span class="debt-hot">TODO</span>   <span class="terminal-text-default">src/config.rs</span>              <span class="terminal-text-muted">201</span>    <span class="terminal-text-muted">alice</span>      <span class="debt-hot">310d ago</span>   <span class="terminal-text-default">support YAML format</span></div>
+          <div><span class="debt-hot">TODO</span>   <span class="terminal-text-default">src/parser.rs</span>              <span class="terminal-text-muted">42</span>     <span class="terminal-text-muted">alice</span>      <span class="debt-hot">142d ago</span>   <span class="terminal-text-default">refactor this loop</span></div>
+          <div><span class="debt-warm">FIXME</span>  <span class="terminal-text-default">src/handler.rs</span>             <span class="terminal-text-muted">87</span>     <span class="terminal-text-muted">rivka</span>      <span class="debt-warm">63d ago</span>    <span class="terminal-text-default">handle timeout case</span></div>
+          <div><span class="debt-fresh">HACK</span>   <span class="terminal-text-default">tests/integration.rs</span>       <span class="terminal-text-muted">15</span>     <span class="terminal-text-muted">charlie</span>    <span class="debt-fresh">8d ago</span>     <span class="terminal-text-default">temporary workaround</span></div>
+          <div style="margin-top:14px;"><span class="terminal-text-muted">Summary:</span> <span class="debt-hot">2 rotten</span> <span class="terminal-text-dim">·</span> <span class="debt-warm">1 aging</span> <span class="terminal-text-dim">·</span> <span class="debt-fresh">1 fresh</span></div>
+          <div><span class="terminal-text-muted">Oldest:</span> <span class="debt-hot">310 days</span> <span class="terminal-text-dim">(alice · src/config.rs:201)</span></div>
         </div>
-    </section>
+      </div>
+      <p style="text-align:center;margin-top:18px;font-size:0.8rem;" class="muted">
+        <span class="debt-hot">●</span> Rotten <span class="faint">&middot;</span> older than 90d
+        <span style="margin-left:12px;"><span class="debt-warm">●</span> Aging</span> <span class="faint">&middot;</span> 30-90d
+        <span style="margin-left:12px;"><span class="debt-fresh">●</span> Fresh</span> <span class="faint">&middot;</span> under 30d
+      </p>
+    </div>
+  </section>
 
-    <!-- Terminal Demo -->
-    <section id="demo" class="py-20 px-6">
-        <div class="max-w-4xl mx-auto">
-            <h2 class="text-2xl font-bold text-white text-center mb-12">See it in action</h2>
-            <div class="bg-surface-1 border border-white/5 rounded-xl overflow-hidden glow-border">
-                <div class="flex items-center gap-2 px-4 py-3 bg-surface-2 border-b border-white/5">
-                    <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-                    <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-                    <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-                    <span class="ml-2 terminal text-xs text-gray-500">terminal</span>
-                </div>
-                <div class="p-6 terminal text-sm leading-relaxed overflow-x-auto">
-                    <div class="text-gray-400">$ <span class="text-white">gundi .</span></div>
-                    <div class="mt-4 text-gray-500">
-                        <div>TYPE   FILE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; LINE&nbsp;&nbsp; AUTHOR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; AGE&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; TEXT</div>
-                        <div>--------------------------------------------------------------------------------------------------------------</div>
-                    </div>
-                    <div class="text-debt-red">TODO&nbsp;&nbsp; src/parser.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 42&nbsp;&nbsp;&nbsp;&nbsp; alice&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 142d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; refactor this loop</div>
-                    <div class="text-debt-yellow">FIXME&nbsp; src/handler.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 87&nbsp;&nbsp;&nbsp;&nbsp; bob&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 63d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; handle timeout case</div>
-                    <div class="text-debt-green">HACK&nbsp;&nbsp; tests/integration.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 15&nbsp;&nbsp;&nbsp;&nbsp; charlie&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 8d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; temporary workaround</div>
-                    <div class="text-debt-red">TODO&nbsp;&nbsp; src/config.rs&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 201&nbsp;&nbsp;&nbsp; alice&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 310d ago&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; support YAML format</div>
-                    <div class="mt-4 text-gray-400">Total: 4 items</div>
-                </div>
-            </div>
-            <p class="text-center text-sm text-gray-500 mt-4">
-                <span class="text-debt-red">Red</span> = older than 90 days &middot;
-                <span class="text-debt-yellow">Yellow</span> = older than 30 days &middot;
-                <span class="text-debt-green">Green</span> = recent
-            </p>
+  <!-- Install (tabbed) -->
+  <section id="install" class="section-alt" style="padding:80px 24px;">
+    <div style="max-width:640px;margin:0 auto;">
+      <h2 class="heading scroll-reveal" style="font-size:1.7rem;font-weight:700;letter-spacing:-0.02em;text-align:center;margin:0 0 8px;">Install in one line</h2>
+      <p class="subtext scroll-reveal" style="text-align:center;margin:0 auto 32px;max-width:420px;">Requires Rust. No config, no YAML, no setup flags.</p>
+
+      <div class="scroll-reveal" style="border-radius:12px;overflow:hidden;" class="card">
+        <div class="border-soft" style="display:flex;border-bottom-width:1px;border-bottom-style:solid;">
+          <button class="tab-btn active" id="tab-cargo" onclick="showTab('cargo')" type="button">cargo</button>
+          <button class="tab-btn" id="tab-source" onclick="showTab('source')" type="button">from source</button>
         </div>
-    </section>
-
-    <!-- Install -->
-    <section id="install" class="py-20 px-6">
-        <div class="max-w-2xl mx-auto">
-            <h2 class="text-2xl font-bold text-white text-center mb-12">Install</h2>
-            <div class="bg-surface-1 border border-white/5 rounded-xl overflow-hidden">
-                <div class="flex border-b border-white/5">
-                    <button onclick="showTab('cargo')" id="tab-cargo" class="tab-active px-5 py-3 text-sm font-medium border-b-2 transition-colors">cargo install</button>
-                    <button onclick="showTab('source')" id="tab-source" class="px-5 py-3 text-sm font-medium text-gray-500 hover:text-gray-300 border-b-2 border-transparent transition-colors">From source</button>
-                </div>
-                <div id="panel-cargo" class="p-6">
-                    <div class="flex items-center justify-between bg-surface-2 rounded-lg px-4 py-3">
-                        <code class="terminal text-sm text-accent-glow">cargo install gundi</code>
-                        <button onclick="copyText('cargo install gundi', this)" class="text-gray-500 hover:text-accent transition-colors copy-btn" aria-label="Copy">
-                            <svg class="w-4 h-4 copy-svg" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <rect x="9" y="9" width="13" height="13" rx="2"/>
-                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                            </svg>
-                            <svg class="w-4 h-4 check-svg text-accent" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M20 6L9 17l-5-5"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div id="panel-source" class="p-6 hidden">
-                    <div class="bg-surface-2 rounded-lg px-4 py-3 terminal text-sm text-gray-300 space-y-1">
-                        <div>git clone https://github.com/iamkorun/gundi.git</div>
-                        <div>cd gundi</div>
-                        <div>cargo install --path .</div>
-                    </div>
-                </div>
-            </div>
+        <div id="panel-cargo" style="padding:20px;">
+          <div class="install-pill install-pill-inner" style="display:flex;align-items:center;gap:14px;padding:14px 18px;border-radius:10px;">
+            <code style="font-family:'JetBrains Mono',monospace;font-size:0.92rem;flex:1;user-select:all;white-space:nowrap;overflow-x:auto;" class="heading">cargo install gundi</code>
+            <button class="copy-btn" onclick="copyText('cargo install gundi', this)" type="button" aria-label="Copy install command">
+              <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              <span>copy</span>
+            </button>
+          </div>
         </div>
-    </section>
-
-    <!-- CI Gate -->
-    <section id="ci" class="py-20 px-6">
-        <div class="max-w-3xl mx-auto">
-            <h2 class="text-2xl font-bold text-white text-center mb-3">Block ancient debt in CI</h2>
-            <p class="text-center text-gray-400 mb-10 text-sm max-w-xl mx-auto">
-                Drop <code class="terminal text-xs bg-surface-3 px-1.5 py-0.5 rounded text-accent-glow">--fail-on N</code> into your workflow. Gundi exits non-zero if any TODO has been rotting longer than your threshold.
-            </p>
-            <div class="bg-surface-1 border border-white/5 rounded-xl overflow-hidden glow-border">
-                <div class="flex items-center justify-between gap-2 px-4 py-3 bg-surface-2 border-b border-white/5">
-                    <div class="flex items-center gap-2">
-                        <div class="w-3 h-3 rounded-full bg-red-500/60"></div>
-                        <div class="w-3 h-3 rounded-full bg-yellow-500/60"></div>
-                        <div class="w-3 h-3 rounded-full bg-green-500/60"></div>
-                        <span class="ml-2 terminal text-xs text-gray-500">.github/workflows/debt.yml</span>
-                    </div>
-                    <button onclick="copyCI(this)" class="text-xs text-gray-500 hover:text-accent transition-colors flex items-center gap-1.5 copy-btn" aria-label="Copy workflow">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <rect x="9" y="9" width="13" height="13" rx="2"/>
-                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                        </svg>
-                        <span id="ci-copy-label">copy</span>
-                    </button>
-                </div>
-                <pre class="p-6 terminal text-sm leading-relaxed overflow-x-auto text-gray-300"><span class="text-accent-dim">name:</span> Code Debt Check
-<span class="text-accent-dim">on:</span> [pull_request]
-<span class="text-accent-dim">jobs:</span>
-  <span class="text-accent-dim">debt:</span>
-    <span class="text-accent-dim">runs-on:</span> ubuntu-latest
-    <span class="text-accent-dim">steps:</span>
-      - <span class="text-accent-dim">uses:</span> actions/checkout@v4
-        <span class="text-accent-dim">with:</span>
-          <span class="text-accent-dim">fetch-depth:</span> 0  <span class="text-gray-600"># required for git blame</span>
-      - <span class="text-accent-dim">run:</span> cargo install gundi
-      - <span class="text-accent-dim">run:</span> gundi --fail-on 90 .</pre>
-            </div>
+        <div id="panel-source" style="padding:20px;display:none;">
+          <div class="install-pill" style="padding:16px 18px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:0.82rem;line-height:1.8;overflow-x:auto;">
+            <div><span class="muted">$</span> <span class="heading">git clone https://github.com/iamkorun/gundi.git</span></div>
+            <div><span class="muted">$</span> <span class="heading">cd gundi</span></div>
+            <div><span class="muted">$</span> <span class="heading">cargo install --path .</span></div>
+          </div>
         </div>
-    </section>
+      </div>
 
-    <!-- Footer -->
-    <footer class="py-16 px-6 border-t border-white/5">
-        <div class="max-w-3xl mx-auto text-center">
-            <div class="flex items-center justify-center gap-6 mb-6">
-                <a href="https://github.com/iamkorun/gundi" class="text-sm text-gray-400 hover:text-white transition-colors">GitHub</a>
-                <a href="https://crates.io/crates/gundi" class="text-sm text-gray-400 hover:text-white transition-colors">crates.io</a>
-                <a href="https://buymeacoffee.com/iamkorun" class="text-sm text-gray-400 hover:text-white transition-colors">Buy Me a Coffee</a>
-            </div>
-            <p class="text-xs text-gray-600">MIT License &middot; Built with Rust</p>
+      <div class="scroll-reveal" style="margin-top:28px;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+        <a href="#ci" class="btn-primary">Gate your CI →</a>
+        <a href="https://github.com/iamkorun/gundi" target="_blank" rel="noopener" class="btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features: ZIGZAG rows (stacked-showcase archetype) -->
+  <section id="features" style="padding:96px 24px;">
+    <div style="max-width:1120px;margin:0 auto;">
+      <h2 class="heading scroll-reveal" style="font-size:1.9rem;font-weight:700;letter-spacing:-0.02em;text-align:center;margin:0 0 12px;">Four features. No fluff.</h2>
+      <p class="subtext scroll-reveal" style="text-align:center;margin:0 auto 80px;max-width:520px;">Scan fast, blame accurately, filter precisely, fail CI loudly.</p>
+
+      <!-- Row 1: Scan -->
+      <div class="zigzag-row scroll-reveal" style="margin-bottom:80px;">
+        <div>
+          <div class="accent-bg-soft badge accent-soft" style="margin-bottom:16px;">
+            <span>01 · scan</span>
+          </div>
+          <h3 class="heading" style="font-size:1.6rem;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">Digs through every file in parallel</h3>
+          <p class="subtext" style="font-size:1rem;line-height:1.6;margin:0 0 16px;">
+            Walks your tree with <span class="inline-code">rayon</span>, honors <span class="inline-code">.gitignore</span>, and sniffs out the six classic debt tags: <span class="inline-code">TODO</span>, <span class="inline-code">FIXME</span>, <span class="inline-code">HACK</span>, <span class="inline-code">XXX</span>, <span class="inline-code">BUG</span>, <span class="inline-code">NOTE</span>.
+          </p>
+          <p class="muted" style="font-size:0.85rem;margin:0;">~127 files in well under a second on a medium repo.</p>
         </div>
-    </footer>
+        <div class="zigzag-visual terminal" style="border-radius:10px;overflow:hidden;">
+          <div class="terminal-bar terminal-bar-bg">
+            <div style="width:10px;height:10px;border-radius:50%;background:#E07070;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#E8B94A;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#7FB069;opacity:0.6;"></div>
+            <span style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;" class="terminal-text-dim">scan output</span>
+          </div>
+          <div class="terminal-body" style="padding:18px 20px;font-size:0.78rem;line-height:1.85;">
+            <div><span class="terminal-text-dim">$</span> <span class="terminal-text-default">gundi --types todo,fixme</span></div>
+            <div><span class="debt-hot">TODO</span>  <span class="terminal-text-default">src/lib.rs:12</span>  <span class="terminal-text-muted">refactor state machine</span></div>
+            <div><span class="debt-hot">TODO</span>  <span class="terminal-text-default">src/db.rs:88</span>   <span class="terminal-text-muted">add retry logic</span></div>
+            <div><span class="debt-warm">FIXME</span> <span class="terminal-text-default">src/api.rs:203</span> <span class="terminal-text-muted">race on shutdown</span></div>
+          </div>
+        </div>
+      </div>
 
-    <script>
-        function copyInstall(el) {
-            navigator.clipboard.writeText('cargo install gundi');
-            var label = document.getElementById('copy-label');
-            label.textContent = 'copied!';
-            label.classList.add('text-accent');
-            setTimeout(function() {
-                label.textContent = 'click to copy';
-                label.classList.remove('text-accent');
-            }, 2000);
+      <!-- Row 2: Blame -->
+      <div class="zigzag-row reverse scroll-reveal" style="margin-bottom:80px;">
+        <div>
+          <div class="accent-bg-soft badge accent-soft" style="margin-bottom:16px;">
+            <span>02 · blame</span>
+          </div>
+          <h3 class="heading" style="font-size:1.6rem;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">Runs git blame on every hit</h3>
+          <p class="subtext" style="font-size:1rem;line-height:1.6;margin:0 0 16px;">
+            Each TODO comes back with the author's git identity, the commit SHA, and how long it has been parked. The comment you wrote during your first sprint? Yeah. Still there. 310 days old.
+          </p>
+          <p class="muted" style="font-size:0.85rem;margin:0;">Blame is cached per commit — re-scanning the same tree is near-instant.</p>
+        </div>
+        <div class="zigzag-visual terminal" style="border-radius:10px;overflow:hidden;">
+          <div class="terminal-bar terminal-bar-bg">
+            <div style="width:10px;height:10px;border-radius:50%;background:#E07070;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#E8B94A;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#7FB069;opacity:0.6;"></div>
+            <span style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;" class="terminal-text-dim">blame output</span>
+          </div>
+          <div class="terminal-body" style="padding:18px 20px;font-size:0.78rem;line-height:1.85;">
+            <div><span class="terminal-text-dim">author:</span> <span class="terminal-text-default">alice &lt;a@team.dev&gt;</span></div>
+            <div><span class="terminal-text-dim">sha:</span>    <span class="accent-soft">7b39c2a</span></div>
+            <div><span class="terminal-text-dim">date:</span>   <span class="terminal-text-default">2025-06-08</span></div>
+            <div><span class="terminal-text-dim">age:</span>    <span class="debt-hot">310 days</span></div>
+            <div><span class="terminal-text-dim">text:</span>   <span class="terminal-text-default">"support YAML format"</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: Filter -->
+      <div class="zigzag-row scroll-reveal" style="margin-bottom:80px;">
+        <div>
+          <div class="accent-bg-soft badge accent-soft" style="margin-bottom:16px;">
+            <span>03 · filter</span>
+          </div>
+          <h3 class="heading" style="font-size:1.6rem;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">Slice by type, age, or author</h3>
+          <p class="subtext" style="font-size:1rem;line-height:1.6;margin:0 0 16px;">
+            Just want the rotten stuff? <span class="inline-code">--min-age 90</span>. Just FIXMEs? <span class="inline-code">--types fixme</span>. Just alice's debt? <span class="inline-code">--author alice</span>. Chain them. Pipe to <span class="inline-code">jq</span>.
+          </p>
+          <p class="muted" style="font-size:0.85rem;margin:0;">Output as <span class="inline-code">table</span>, <span class="inline-code">json</span>, or <span class="inline-code">markdown</span>.</p>
+        </div>
+        <div class="zigzag-visual terminal" style="border-radius:10px;overflow:hidden;">
+          <div class="terminal-bar terminal-bar-bg">
+            <div style="width:10px;height:10px;border-radius:50%;background:#E07070;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#E8B94A;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#7FB069;opacity:0.6;"></div>
+            <span style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;" class="terminal-text-dim">filtered</span>
+          </div>
+          <div class="terminal-body" style="padding:18px 20px;font-size:0.78rem;line-height:1.85;">
+            <div><span class="terminal-text-dim">$</span> <span class="terminal-text-default">gundi --min-age 90 --format json</span></div>
+            <div class="terminal-text-muted">[</div>
+            <div class="terminal-text-muted">  {</div>
+            <div>    <span class="accent-soft">"type"</span>: <span class="debt-hot">"TODO"</span>,</div>
+            <div>    <span class="accent-soft">"file"</span>: <span class="terminal-text-default">"src/config.rs"</span>,</div>
+            <div>    <span class="accent-soft">"age_days"</span>: <span class="debt-hot">310</span></div>
+            <div class="terminal-text-muted">  }</div>
+            <div class="terminal-text-muted">]</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 4: Fail -->
+      <div class="zigzag-row reverse scroll-reveal">
+        <div>
+          <div class="accent-bg-soft badge accent-soft" style="margin-bottom:16px;">
+            <span>04 · fail</span>
+          </div>
+          <h3 class="heading" style="font-size:1.6rem;font-weight:700;margin:0 0 12px;letter-spacing:-0.02em;">Block merges on rot</h3>
+          <p class="subtext" style="font-size:1rem;line-height:1.6;margin:0 0 16px;">
+            Drop <span class="inline-code">--fail-on 90</span> into your workflow and gundi exits non-zero the moment a TODO crosses your threshold. No config file. No drama. Just a hard stop.
+          </p>
+          <p class="muted" style="font-size:0.85rem;margin:0;">See the CI recipe below ↓</p>
+        </div>
+        <div class="zigzag-visual terminal" style="border-radius:10px;overflow:hidden;">
+          <div class="terminal-bar terminal-bar-bg">
+            <div style="width:10px;height:10px;border-radius:50%;background:#E07070;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#E8B94A;opacity:0.6;"></div>
+            <div style="width:10px;height:10px;border-radius:50%;background:#7FB069;opacity:0.6;"></div>
+            <span style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:0.7rem;" class="terminal-text-dim">ci run</span>
+          </div>
+          <div class="terminal-body" style="padding:18px 20px;font-size:0.78rem;line-height:1.85;">
+            <div><span class="terminal-text-dim">$</span> <span class="terminal-text-default">gundi --fail-on 90</span></div>
+            <div><span class="debt-hot">error:</span> <span class="terminal-text-default">2 items exceed threshold (90d)</span></div>
+            <div class="terminal-text-muted">  · src/config.rs:201 (310d, alice)</div>
+            <div class="terminal-text-muted">  · src/parser.rs:42  (142d, alice)</div>
+            <div style="margin-top:10px;" class="terminal-text-dim">exit code: 1</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CI recipe -->
+  <section id="ci" class="section-alt" style="padding:96px 24px;">
+    <div style="max-width:820px;margin:0 auto;">
+      <h2 class="heading scroll-reveal" style="font-size:1.7rem;font-weight:700;letter-spacing:-0.02em;text-align:center;margin:0 0 10px;">Drop-in GitHub Actions recipe</h2>
+      <p class="subtext scroll-reveal" style="text-align:center;margin:0 auto 36px;max-width:520px;">Any TODO older than 90 days fails the check. Adjust the threshold to your tolerance.</p>
+
+      <div class="terminal scroll-reveal" style="border-radius:12px;overflow:hidden;">
+        <div class="terminal-bar terminal-bar-bg" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:12px;height:12px;border-radius:50%;background:#E07070;"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#E8B94A;"></div>
+            <div style="width:12px;height:12px;border-radius:50%;background:#7FB069;"></div>
+            <span style="margin-left:10px;font-family:'JetBrains Mono',monospace;font-size:0.72rem;" class="terminal-text-dim">.github/workflows/debt.yml</span>
+          </div>
+          <button class="copy-btn" onclick="copyCI(this)" type="button" aria-label="Copy workflow">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            <span>copy yaml</span>
+          </button>
+        </div>
+        <pre class="terminal-body" style="padding:22px 24px;font-size:0.84rem;line-height:1.75;overflow-x:auto;margin:0;"><span class="yaml-key">name:</span> <span class="terminal-text-default">Code Debt Check</span>
+<span class="yaml-key">on:</span> <span class="terminal-text-default">[pull_request]</span>
+
+<span class="yaml-key">jobs:</span>
+  <span class="yaml-key">debt:</span>
+    <span class="yaml-key">runs-on:</span> <span class="terminal-text-default">ubuntu-latest</span>
+    <span class="yaml-key">steps:</span>
+      - <span class="yaml-key">uses:</span> <span class="terminal-text-default">actions/checkout@v4</span>
+        <span class="yaml-key">with:</span>
+          <span class="yaml-key">fetch-depth:</span> <span class="terminal-text-default">0</span>  <span class="yaml-comment"># git blame needs full history</span>
+      - <span class="yaml-key">run:</span> <span class="terminal-text-default">cargo install gundi</span>
+      - <span class="yaml-key">run:</span> <span class="terminal-text-default">gundi --fail-on 90 .</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section style="padding:96px 24px;text-align:center;">
+    <div style="max-width:540px;margin:0 auto;">
+      <div class="scroll-reveal" style="font-size:48px;margin-bottom:14px;">🐾</div>
+      <h2 class="heading scroll-reveal" style="font-size:2.1rem;font-weight:700;letter-spacing:-0.02em;margin:0 0 14px;">Your oldest TODO is older than you think.</h2>
+      <p class="subtext scroll-reveal" style="margin:0 0 32px;font-size:1.05rem;">Let gundi dig it up for you.</p>
+      <div class="scroll-reveal" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;">
+        <a href="#install" class="btn-primary">Get gundi</a>
+        <a href="https://buymeacoffee.com/iamkorun" target="_blank" rel="noopener" class="btn-secondary">☕ Buy me a coffee</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-soft" style="border-top-width:1px;border-top-style:solid;padding:32px 24px;">
+    <div class="footer-inner" style="max-width:1120px;margin:0 auto;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+      <span class="muted" style="font-family:'JetBrains Mono',monospace;font-size:0.82rem;">🐾 gundi</span>
+      <span class="muted" style="font-size:0.82rem;">MIT License · Made with dirt and Rust</span>
+      <div style="display:flex;gap:16px;">
+        <a href="https://github.com/iamkorun/gundi" class="nav-link" style="font-size:0.82rem;">GitHub</a>
+        <a href="https://crates.io/crates/gundi" class="nav-link" style="font-size:0.82rem;">crates.io</a>
+        <a href="https://buymeacoffee.com/iamkorun" class="nav-link" style="font-size:0.82rem;">☕ Coffee</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function copyText(text, btn) {
+      navigator.clipboard.writeText(text).then(function() {
+        btn.classList.add('copied');
+        var span = btn.querySelector('span');
+        var oldText = span ? span.textContent : '';
+        if (span) span.textContent = 'copied!';
+        showToast('Copied to clipboard');
+        setTimeout(function() {
+          btn.classList.remove('copied');
+          if (span) span.textContent = oldText || 'copy';
+        }, 2000);
+      });
+    }
+
+    function copyCI(btn) {
+      var workflow = "name: Code Debt Check\non: [pull_request]\n\njobs:\n  debt:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - run: cargo install gundi\n      - run: gundi --fail-on 90 .\n";
+      copyText(workflow, btn);
+    }
+
+    function showToast(msg) {
+      var toast = document.getElementById('copy-toast');
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+      setTimeout(function() {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(-60px)';
+      }, 2000);
+    }
+
+    function showTab(name) {
+      document.querySelectorAll('[id^="panel-"]').forEach(function(p) { p.style.display = 'none'; });
+      document.querySelectorAll('[id^="tab-"]').forEach(function(t) { t.classList.remove('active'); });
+      document.getElementById('panel-' + name).style.display = 'block';
+      document.getElementById('tab-' + name).classList.add('active');
+    }
+
+    function toggleTheme() {
+      var html = document.documentElement;
+      var isDark = html.classList.contains('dark');
+      var btn = document.getElementById('theme-toggle');
+      if (isDark) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        localStorage.setItem('forge-theme', 'light');
+        btn.setAttribute('aria-pressed', 'true');
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        localStorage.setItem('forge-theme', 'dark');
+        btn.setAttribute('aria-pressed', 'false');
+      }
+      updateThemeIcon();
+    }
+
+    function updateThemeIcon() {
+      var isDark = document.documentElement.classList.contains('dark');
+      document.getElementById('theme-sun').style.display = isDark ? 'none' : 'block';
+      document.getElementById('theme-moon').style.display = isDark ? 'block' : 'none';
+    }
+    updateThemeIcon();
+
+    var observer = new IntersectionObserver(function(entries) {
+      entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
         }
-
-        function copyText(text, btn) {
-            navigator.clipboard.writeText(text);
-            btn.classList.add('copied');
-            setTimeout(function() {
-                btn.classList.remove('copied');
-            }, 2000);
-        }
-
-        function copyCI(btn) {
-            var workflow = "name: Code Debt Check\non: [pull_request]\njobs:\n  debt:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - run: cargo install gundi\n      - run: gundi --fail-on 90 .\n";
-            navigator.clipboard.writeText(workflow);
-            var label = document.getElementById('ci-copy-label');
-            label.textContent = 'copied!';
-            setTimeout(function() { label.textContent = 'copy'; }, 2000);
-        }
-
-        function showTab(name) {
-            document.querySelectorAll('[id^="panel-"]').forEach(function(p) { p.classList.add('hidden'); });
-            document.querySelectorAll('[id^="tab-"]').forEach(function(t) {
-                t.classList.remove('tab-active');
-                t.classList.add('text-gray-500', 'border-transparent');
-            });
-            document.getElementById('panel-' + name).classList.remove('hidden');
-            var tab = document.getElementById('tab-' + name);
-            tab.classList.add('tab-active');
-            tab.classList.remove('text-gray-500', 'border-transparent');
-        }
-    </script>
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.scroll-reveal').forEach(function(el) { observer.observe(el); });
+  </script>
 </body>
 </html>
